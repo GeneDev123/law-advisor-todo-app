@@ -46,3 +46,5 @@ Thumbs.db
 
 # Pipenv
 Pipfile.lock
+
+todo_app/django_debug.log

@@ -42,22 +42,24 @@ class TaskApp {
 
     async updateTask(task) {
         this.editingId = task.id;
-        const newTitle = prompt("Update task title:", task.title);
-        if (newTitle === null) {
-            this.editingId = null;
-            return;
+
+        // Note: Title cannot be empty.
+        let title = prompt("Update task title:", task.title);
+        if (title === null) return this.editingId = null;
+
+        title = title.trim();
+        if (!title) {
+            alert("Title cannot be empty");
+            return this.updateTask(task);
         }
 
-        const newDescription = prompt("Update task description:", task.description || "");
-        if (newDescription === null) {
-            this.editingId = null;
-            return;
-        }
+        let description = prompt("Update task description:", task.description || "");
+        if (description === null) return this.editingId = null;
 
-        await fetch(`${API}/tasks/update/${task.id}/`, {
+        await fetch(`${API}/tasks/${task.id}/`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: newTitle || task.title, description: newDescription })
+            body: JSON.stringify({ title, description })
         });
 
         this.editingId = null;
@@ -67,7 +69,7 @@ class TaskApp {
     async deleteTask(taskId) {
         if (!confirm("Delete this task?")) return;
 
-        await fetch(`${API}/tasks/delete/${taskId}/`, {
+        await fetch(`${API}/tasks/${taskId}/`, {
             method: "DELETE"
         });
 

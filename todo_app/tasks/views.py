@@ -5,6 +5,10 @@ from rest_framework.response import Response
 from .models import Task
 from .serializers import TaskSerializer
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 # Utility function
 def get_new_position(prev, next):
     if prev is None and next is None:
