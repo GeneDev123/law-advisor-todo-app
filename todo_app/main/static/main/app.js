@@ -10,7 +10,14 @@ class TaskApp {
         this.draggedId = null;
         this.editingId = null;
 
+        // Infinite scroll state
+        this.nextCursor = null;
+        this.isLoading = false;
+        this.hasMore = true;
+        this.allTasks = []; // Keep track of all loaded tasks
+
         this.bindEvents(); 
+        this.setupInfiniteScroll();
         this.loadTasks(); // Initial load of the tasks when the app starts
     }
 
@@ -18,9 +25,27 @@ class TaskApp {
         this.addBtn.onclick = () => this.createTask();
     }
 
+    setupInfiniteScroll() {
+        this.taskList.addEventListener("scroll", () => {
+            // Check if scrolled near bottom (within 200px)
+            if (
+                this.taskList.scrollTop + this.taskList.clientHeight >=
+                this.taskList.scrollHeight - 200
+            ) {
+                if (!this.isLoading && this.hasMore) {
+                    this.loadMoreTasks();
+                }
+            }
+        });
+    }
+
     // API CALLS
-    async fetchTasks() {
-        const res = await fetch(`${API}/tasks/`);
+    async fetchTasks(cursor = null) {
+        let url = `${API}/tasks/`;
+        if (cursor) {
+            url += `?cursor=${cursor}`;
+        }
+        const res = await fetch(url);
         return await res.json();
     }
 
@@ -29,7 +54,7 @@ class TaskApp {
         const description = this.descriptionInput.value.trim();
         if (!title) return;
 
-        await fetch(`${API}/tasks/create/`, {
+        await fetch(`${API}/tasks/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title, description })
@@ -37,40 +62,54 @@ class TaskApp {
 
         this.input.value = "";
         this.descriptionInput.value = "";
+        // Reset pagination and reload from start
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
     async updateTask(task) {
         this.editingId = task.id;
-        const newTitle = prompt("Update task title:", task.title);
-        if (newTitle === null) {
-            this.editingId = null;
-            return;
+
+        // Note: Title cannot be empty.
+        let title = prompt("Update task title:", task.title);
+        if (title === null) return this.editingId = null;
+
+        title = title.trim();
+        if (!title) {
+            alert("Title cannot be empty");
+            return this.updateTask(task);
         }
 
-        const newDescription = prompt("Update task description:", task.description || "");
-        if (newDescription === null) {
-            this.editingId = null;
-            return;
-        }
+        let description = prompt("Update task description:", task.description || "");
+        if (description === null) return this.editingId = null;
 
-        await fetch(`${API}/tasks/update/${task.id}/`, {
+        await fetch(`${API}/tasks/${task.id}/`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: newTitle || task.title, description: newDescription })
+            body: JSON.stringify({ title, description })
         });
 
         this.editingId = null;
+        // Reset pagination and reload
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
     async deleteTask(taskId) {
         if (!confirm("Delete this task?")) return;
 
-        await fetch(`${API}/tasks/delete/${taskId}/`, {
+        await fetch(`${API}/tasks/${taskId}/`, {
             method: "DELETE"
         });
 
+        // Reset pagination and reload
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
@@ -84,22 +123,54 @@ class TaskApp {
             })
         });
 
+        // Reset pagination and reload
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
     // Load and render functions
     async loadTasks() {
-        const tasks = await this.fetchTasks();
-        this.render(tasks);
+        this.isLoading = true;
+        const data = await this.fetchTasks();
+        
+        // Clear the list for fresh start
+        this.allTasks = [];
+        this.taskList.innerHTML = "";
+        
+        this.renderPage(data);
+        this.isLoading = false;
     }
 
-    render(tasks) {
-        this.taskList.innerHTML = "";
+    async loadMoreTasks() {
+        if (!this.nextCursor || this.isLoading) return;
+        
+        this.isLoading = true;
+        const data = await this.fetchTasks(this.nextCursor);
+        this.renderPage(data);
+        this.isLoading = false;
+    }
 
-        tasks.forEach((task, index) => {
-            const li = this.createTaskElement(task, index);
+    renderPage(data) {
+        // Handle paginated response format
+        const tasks = data.results || data;
+        
+        tasks.forEach((task) => {
+            this.allTasks.push(task);
+            const li = this.createTaskElement(task, this.allTasks.length - 1);
             this.taskList.appendChild(li);
         });
+
+        // Update pagination state
+        this.nextCursor = data.next ? this.extractCursor(data.next) : null;
+        this.hasMore = !!data.next;
+    }
+
+    extractCursor(nextUrl) {
+        // Extract cursor parameter from next URL
+        const url = new URL(nextUrl, window.location.origin);
+        return url.searchParams.get('cursor');
     }
 
     createTaskElement(task, index) {

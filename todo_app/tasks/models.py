@@ -4,8 +4,8 @@ from django.db import models
 
 class Task(models.Model):
     title = models.CharField(max_length=255)
-    description = models.TextField()
-    position = models.PositiveIntegerField()
+    description = models.TextField(blank=True, default='')
+    position = models.FloatField(db_index=True)
 
     def __str__(self):
         return self.title
