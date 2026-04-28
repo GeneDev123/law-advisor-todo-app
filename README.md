@@ -2,6 +2,28 @@
 
 A Django-based todo application.
 
+## Criteria
+
+- The user should be able to list all tasks in the TODO list
+- The user should be able to add a task to the TODO list
+- The user should be able to update the details of a task in the TODO list
+- The user should be able to remove a task from the TODO list
+- The user should be able to reorder the tasks in the TODO list
+    - A task in the TODO list should be able to handle being moved more than 50 times
+    - A task in the TODO list should be able to handle being moved to more than one task away from its current position
+    - Note: You can think of this as an API endpoint that will be used to handle the drag-and-drop feature of a TODO list application
+- The application should be able to handle 1 million tasks with a reasonable response time (under 5 seconds)
+
+General requirements
+- All endpoints should return JSON responses.
+- Do not use sorting libraries, we’d prefer you write your own sorting strategy.
+
+## Developer Notes
+- I followed the Gap-based ordering approach to improve scalability specially in reordering
+- I used infinite scroll approach to minimize the burden of returning large data to the frontend thus improving scalability.
+- Currently using SQLite3 as default DB, scalability will improve if I upgrade.
+- I am not able to confirm if this will run 1 mil tasks under 5 second.
+
 ## Setup
 
 ### Prerequisites
