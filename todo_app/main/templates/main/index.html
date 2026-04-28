@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TODO App</title>
+    <link rel="stylesheet" href="{% static 'main/style.css' %}">
+
+</head>
+
+<body>
+
+<div class="container">
+    <h1>TODO App</h1>
+
+    <div class="add-section">
+        <input id="taskInput" placeholder="Task title..." />
+        <textarea id="descriptionInput" placeholder="Task description (optional)..."></textarea>
+        <button id="addBtn">Add</button>
+    </div>
+
+    <ul id="taskList"></ul>
+</div
+>
+
+<script src="{% static 'main/app.js' %}"></script>
+
+</body>
+
+</html>
