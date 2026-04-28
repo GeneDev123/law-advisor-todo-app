@@ -29,7 +29,7 @@ class TaskApp {
         const description = this.descriptionInput.value.trim();
         if (!title) return;
 
-        await fetch(`${API}/tasks/create/`, {
+        await fetch(`${API}/tasks/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title, description })
@@ -69,7 +69,7 @@ class TaskApp {
     async deleteTask(taskId) {
         if (!confirm("Delete this task?")) return;
 
-        await fetch(`${API}/tasks/delete/${taskId}/`, {
+        await fetch(`${API}/tasks/${taskId}/`, {
             method: "DELETE"
         });
 

@@ -23,76 +23,73 @@ def get_new_position(prev, next):
 
 
 # LIST
-@api_view(['GET'])
-def list_tasks(request):
-    tasks = Task.objects.order_by('position')
-    serializer = TaskSerializer(tasks, many=True)
-    return Response(serializer.data)
+@api_view(['GET', 'POST'])
+def tasks(request):
+    if request.method == 'GET':
+        tasks = Task.objects.order_by('position')
+        serializer = TaskSerializer(tasks, many=True)
+        return Response(serializer.data)
 
+    elif request.method == 'POST':
+        title = request.data.get('title')
 
-# CREATE
-@api_view(['POST'])
-def create_task(request):
-    title = request.data.get('title')
+        if not title:
+            return Response(
+                {"error": "Title is required."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    if not title:
-        return Response(
-            {"error": "Title is required."},
-            status=status.HTTP_400_BAD_REQUEST
+        last = Task.objects.order_by('-position').first()
+        position = last.position + 1000 if last else 1000
+
+        task = Task.objects.create(
+            title=title,
+            description=request.data.get('description', ''),
+            position=position
         )
 
-    last = Task.objects.order_by('-position').first()
-    position = last.position + 1000 if last else 1000
+        return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
+    
+@api_view(['PUT', 'DELETE'])
+def task_detail(request, pk):
+    if request.method == 'PUT':
+        task = get_object_or_404(Task, pk=pk)
 
-    task = Task.objects.create(
-        title=title,
-        description=request.data.get('description', ''),
-        position=position
-    )
+        title = request.data.get('title')
+        description = request.data.get('description')
 
-    return Response(
-        TaskSerializer(task).data,
-        status=status.HTTP_201_CREATED
-    )
+        if title is not None and not isinstance(title, str):
+            return Response(
+                {"error": "Title must be a string."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-# UPDATE
-@api_view(['PUT'])
-def update_task(request, pk):
-    task = get_object_or_404(Task, pk=pk)
+        if description is not None and not isinstance(description, str):
+            return Response(
+                {"error": "Description must be a string."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-    title = request.data.get('title')
-    description = request.data.get('description')
+        # update safely
+        if title is not None:
+            task.title = title
 
-    if title is not None and not isinstance(title, str):
+        if description is not None:
+            task.description = description
+
+        task.save()
+
+        return Response(TaskSerializer(task).data, status=status.HTTP_200_OK)
+    
+    if request.method == 'DELETE':
+        task = get_object_or_404(Task, pk=pk)
+
+        task.delete()
+
         return Response(
-            {"error": "Title must be a string."},
-            status=status.HTTP_400_BAD_REQUEST
+            {"message": f"Task {pk} deleted successfully."},
+            status=status.HTTP_200_OK
         )
-
-    if description is not None and not isinstance(description, str):
-        return Response(
-            {"error": "Description must be a string."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
-
-    task.title = title if title is not None else task.title
-    task.description = description if description is not None else task.description
-    task.save()
-
-    return Response(TaskSerializer(task).data, status=status.HTTP_200_OK)
-
-
-# DELETE
-@api_view(['DELETE'])
-def delete_task(request, pk):
-    task = get_object_or_404(Task, pk=pk)
-    task.delete()
-
-    return Response(
-        {"message": f"Task {pk} deleted successfully."},
-        status=status.HTTP_200_OK
-    )
-
 
 # REORDER 
 @api_view(['POST'])
