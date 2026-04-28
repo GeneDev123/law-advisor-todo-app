@@ -5,11 +5,21 @@ from rest_framework.response import Response
 from .models import Task
 from .serializers import TaskSerializer
 from rest_framework import status
+from rest_framework.pagination import CursorPagination
 from django.shortcuts import get_object_or_404
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+# Pagination class for infinite scroll
+class TaskCursorPagination(CursorPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+    ordering = 'position'  # Must match the queryset ordering
+
 
 # Utility function (gap-based ordering)
 def get_new_position(prev, next):
@@ -28,8 +38,10 @@ def get_new_position(prev, next):
 def tasks(request):
     if request.method == 'GET':
         tasks = Task.objects.order_by('position')
-        serializer = TaskSerializer(tasks, many=True)
-        return Response(serializer.data)
+        paginator = TaskCursorPagination()
+        paginated_tasks = paginator.paginate_queryset(tasks, request)
+        serializer = TaskSerializer(paginated_tasks, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
     elif request.method == 'POST':
         title = request.data.get('title')

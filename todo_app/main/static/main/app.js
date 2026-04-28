@@ -10,7 +10,14 @@ class TaskApp {
         this.draggedId = null;
         this.editingId = null;
 
+        // Infinite scroll state
+        this.nextCursor = null;
+        this.isLoading = false;
+        this.hasMore = true;
+        this.allTasks = []; // Keep track of all loaded tasks
+
         this.bindEvents(); 
+        this.setupInfiniteScroll();
         this.loadTasks(); // Initial load of the tasks when the app starts
     }
 
@@ -18,9 +25,27 @@ class TaskApp {
         this.addBtn.onclick = () => this.createTask();
     }
 
+    setupInfiniteScroll() {
+        this.taskList.addEventListener("scroll", () => {
+            // Check if scrolled near bottom (within 200px)
+            if (
+                this.taskList.scrollTop + this.taskList.clientHeight >=
+                this.taskList.scrollHeight - 200
+            ) {
+                if (!this.isLoading && this.hasMore) {
+                    this.loadMoreTasks();
+                }
+            }
+        });
+    }
+
     // API CALLS
-    async fetchTasks() {
-        const res = await fetch(`${API}/tasks/`);
+    async fetchTasks(cursor = null) {
+        let url = `${API}/tasks/`;
+        if (cursor) {
+            url += `?cursor=${cursor}`;
+        }
+        const res = await fetch(url);
         return await res.json();
     }
 
@@ -37,6 +62,10 @@ class TaskApp {
 
         this.input.value = "";
         this.descriptionInput.value = "";
+        // Reset pagination and reload from start
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
@@ -63,6 +92,10 @@ class TaskApp {
         });
 
         this.editingId = null;
+        // Reset pagination and reload
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
@@ -73,6 +106,10 @@ class TaskApp {
             method: "DELETE"
         });
 
+        // Reset pagination and reload
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
@@ -86,22 +123,54 @@ class TaskApp {
             })
         });
 
+        // Reset pagination and reload
+        this.nextCursor = null;
+        this.allTasks = [];
+        this.hasMore = true;
         this.loadTasks();
     }
 
     // Load and render functions
     async loadTasks() {
-        const tasks = await this.fetchTasks();
-        this.render(tasks);
+        this.isLoading = true;
+        const data = await this.fetchTasks();
+        
+        // Clear the list for fresh start
+        this.allTasks = [];
+        this.taskList.innerHTML = "";
+        
+        this.renderPage(data);
+        this.isLoading = false;
     }
 
-    render(tasks) {
-        this.taskList.innerHTML = "";
+    async loadMoreTasks() {
+        if (!this.nextCursor || this.isLoading) return;
+        
+        this.isLoading = true;
+        const data = await this.fetchTasks(this.nextCursor);
+        this.renderPage(data);
+        this.isLoading = false;
+    }
 
-        tasks.forEach((task, index) => {
-            const li = this.createTaskElement(task, index);
+    renderPage(data) {
+        // Handle paginated response format
+        const tasks = data.results || data;
+        
+        tasks.forEach((task) => {
+            this.allTasks.push(task);
+            const li = this.createTaskElement(task, this.allTasks.length - 1);
             this.taskList.appendChild(li);
         });
+
+        // Update pagination state
+        this.nextCursor = data.next ? this.extractCursor(data.next) : null;
+        this.hasMore = !!data.next;
+    }
+
+    extractCursor(nextUrl) {
+        // Extract cursor parameter from next URL
+        const url = new URL(nextUrl, window.location.origin);
+        return url.searchParams.get('cursor');
     }
 
     createTaskElement(task, index) {
