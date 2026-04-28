@@ -69,7 +69,7 @@ class TaskApp {
     async deleteTask(taskId) {
         if (!confirm("Delete this task?")) return;
 
-        await fetch(`${API}/tasks/${taskId}/`, {
+        await fetch(`${API}/tasks/delete/${taskId}/`, {
             method: "DELETE"
         });
 
