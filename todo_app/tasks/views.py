@@ -11,18 +11,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Utility function
+# Utility function (gap-based ordering)
 def get_new_position(prev, next):
     if prev is None and next is None:
-        return 1000
+        return 1000000
     if prev is None:
-        return next - 1000
+        return next - 1000000
     if next is None:
-        return prev + 1000
+        return prev + 1000000
+
     return (prev + next) / 2
 
 
-# LIST
+# LIST + CREATE
 @api_view(['GET', 'POST'])
 def tasks(request):
     if request.method == 'GET':
@@ -39,8 +40,8 @@ def tasks(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        last = Task.objects.order_by('-position').first()
-        position = last.position + 1000 if last else 1000
+        last = Task.objects.order_by('-position').only('position').first()
+        position = last.position + 1000000 if last else 1000000
 
         task = Task.objects.create(
             title=title,
@@ -49,11 +50,14 @@ def tasks(request):
         )
 
         return Response(TaskSerializer(task).data, status=status.HTTP_201_CREATED)
-    
+
+# UPDATE + DELETE
 @api_view(['PUT', 'DELETE'])
 def task_detail(request, pk):
+
+    task = get_object_or_404(Task, pk=pk)
+
     if request.method == 'PUT':
-        task = get_object_or_404(Task, pk=pk)
 
         title = request.data.get('title')
         description = request.data.get('description')
@@ -70,7 +74,6 @@ def task_detail(request, pk):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # update safely
         if title is not None:
             task.title = title
 
@@ -80,10 +83,8 @@ def task_detail(request, pk):
         task.save()
 
         return Response(TaskSerializer(task).data, status=status.HTTP_200_OK)
-    
-    if request.method == 'DELETE':
-        task = get_object_or_404(Task, pk=pk)
 
+    elif request.method == 'DELETE':
         task.delete()
 
         return Response(
@@ -91,7 +92,8 @@ def task_detail(request, pk):
             status=status.HTTP_200_OK
         )
 
-# REORDER 
+
+# REORDER (OPTIMIZED FOR 1M ROWS)
 @api_view(['POST'])
 def reorder_task(request):
     task_id = request.data.get('id')
@@ -104,34 +106,41 @@ def reorder_task(request):
         )
 
     try:
+        task_id = int(task_id)
         new_index = int(new_index)
     except (TypeError, ValueError):
         return Response(
-            {"error": "'newIndex' must be an integer."},
+            {"error": "'id' and 'newIndex' must be integers."},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    tasks = list(Task.objects.order_by('position'))
+    task = get_object_or_404(Task, id=task_id)
 
-    task = next((t for t in tasks if t.id == task_id), None)
-    if not task:
-        return Response(
-            {"error": f"Task with id {task_id} not found."},
-            status=status.HTTP_404_NOT_FOUND
-        )
+    # Get all tasks EXCEPT the one being moved (IMPORTANT OPTIMIZATION)
+    qs = Task.objects.exclude(id=task_id).order_by('position')
 
-    if new_index < 0 or new_index >= len(tasks):
+    total = qs.count()
+
+    if new_index < 0 or new_index > total:
         return Response(
-            {"error": f"'newIndex' must be between 0 and {len(tasks) - 1}."},
+            {"error": f"'newIndex' must be between 0 and {total}."},
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    tasks.remove(task)
-    tasks.insert(new_index, task)
+    # Fetch only neighbors (NO FULL LIST LOAD)
+    prev_task = None
+    next_task = None
 
-    prev_pos = tasks[new_index - 1].position if new_index > 0 else None
-    next_pos = tasks[new_index + 1].position if new_index < len(tasks) - 1 else None
+    if new_index > 0:
+        prev_task = qs[new_index - 1]
 
+    if new_index < total:
+        next_task = qs[new_index]
+
+    prev_pos = prev_task.position if prev_task else None
+    next_pos = next_task.position if next_task else None
+
+    # Assign new fractional/gap position
     task.position = get_new_position(prev_pos, next_pos)
     task.save()
 
