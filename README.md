@@ -2,6 +2,8 @@
 
 A Django-based todo application.
 
+Application URL: https://lawadvisorereyes.pythonanywhere.com/
+
 ## Criteria
 
 - The user should be able to list all tasks in the TODO list
@@ -23,6 +25,12 @@ General requirements
 - I used infinite scroll approach to minimize the burden of returning large data to the frontend thus improving scalability.
 - Currently using SQLite3 as default DB, scalability will improve if I upgrade.
 - I am not able to confirm if this will run 1 mil tasks under 5 second.
+
+## Deployment Notes:
+- I deployed the application through pythonanywhere.com
+- Using the credentials
+    username: LawAdvisorEreyes
+    password: testing321
 
 ## Setup
 
@@ -50,10 +58,11 @@ pipenv shell
 
 4. Create a `.env` file in the root directory and add:
 ```
-SECRET_KEY=your-secret-key-here
+SECRET_KEY='django-insecure-+mz6g2%m9fh0)jvvd6hjq*2-@s49=-e&ue$)sz7nmx!3%k)f*$'
 DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
+ALLOWED_HOSTS=localhost,127.0.0.1,LawAdvisorEreyes.pythonanywhere.com
 ```
+Best Practice is to not display any credentials in the Repo. (This is only a technical app test)
 
 5. Run migrations:
 ```bash
